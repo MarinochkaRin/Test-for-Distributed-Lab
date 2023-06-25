@@ -8,18 +8,14 @@ import java.security.*;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * This class implements a secure messaging protocol using public-key cryptography.
- *
- * @author mryndina
- */
 public class Test1 {
     // Certification Authority
     private static KeyPair trustKeyPair; // TRUST key pair
+    private static PublicKey trustPublicKey; // TRUST public key
 
-    // Key pairs and certificates for Alice, Bob, and Eva
+    // Key pairs and public keys for Alice, Bob, and Eva
     private static Map<String, KeyPair> keyPairs = new HashMap<>(); // Key pairs (private and public) for each participant
-    private static Map<String, PublicKey> publicKeys = new HashMap<>(); // Public keys for each participant, certified by TRUST
+    private static Map<String, PublicKey> publicKeys = new HashMap<>(); // Public keys for each participant
 
     /**
      * The main method demonstrating the secure messaging protocol.
@@ -30,8 +26,9 @@ public class Test1 {
     public static void main(String[] args) throws Exception {
         // Generate keys for TRUST
         trustKeyPair = generateKeyPair();
+        trustPublicKey = trustKeyPair.getPublic();
 
-        // Generate keys and certificates for Alice, Bob, and Eva
+        // Generate keys for Alice, Bob, and Eva
         keyPairs.put("Alice", generateKeyPair());
         keyPairs.put("Bob", generateKeyPair());
         keyPairs.put("Eva", generateKeyPair());
@@ -42,9 +39,9 @@ public class Test1 {
         publicKeys.put("Eva", keyPairs.get("Eva").getPublic());
 
         // Authenticate Alice, Bob, and Eva using TRUST
-        if (authenticate("Alice", publicKeys.get("Alice")) &&
-                authenticate("Bob", publicKeys.get("Bob")) &&
-                authenticate("Eva", publicKeys.get("Eva"))) {
+        if (authenticate("Alice", publicKeys.get("Alice"), trustPublicKey) &&
+                authenticate("Bob", publicKeys.get("Bob"), trustPublicKey) &&
+                authenticate("Eva", publicKeys.get("Eva"), trustPublicKey)) {
             System.out.println("All participants are authenticated by TRUST.");
         } else {
             System.out.println("Authentication failed.");
@@ -99,14 +96,15 @@ public class Test1 {
     /**
      * Authenticates the public key of a participant using TRUST.
      *
-     * @param participant the participant to be authenticated
-     * @param publicKey   the public key of the participant
+     * @param participant   the participant to be authenticated
+     * @param publicKey     the public key of the participant
+     * @param trustPublicKey the public key of the TRUST
      * @return true if the authentication is successful, false otherwise
      * @throws NoSuchAlgorithmException if the RSA algorithm is not available
      * @throws SignatureException       if an error occurs during the signature process
      * @throws InvalidKeyException      if the key is invalid
      */
-    private static boolean authenticate(String participant, PublicKey publicKey) throws NoSuchAlgorithmException, SignatureException, InvalidKeyException {
+    private static boolean authenticate(String participant, PublicKey publicKey, PublicKey trustPublicKey) throws NoSuchAlgorithmException, SignatureException, InvalidKeyException {
         // Create a signature using the private key of TRUST
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initSign(trustKeyPair.getPrivate());
@@ -114,7 +112,7 @@ public class Test1 {
         byte[] signatureBytes = signature.sign();
 
         // Verify the signature using the public key of TRUST
-        signature.initVerify(trustKeyPair.getPublic());
+        signature.initVerify(trustPublicKey);
         signature.update(publicKey.getEncoded());
         return signature.verify(signatureBytes);
     }
@@ -132,7 +130,7 @@ public class Test1 {
      * @throws BadPaddingException       if the padding is invalid
      */
     private static byte[] encryptMessage(String message, PublicKey publicKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cipher = Cipher.getInstance("RSA");
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.ENCRYPT_MODE, publicKey);
         return cipher.doFinal(message.getBytes());
     }
@@ -150,7 +148,7 @@ public class Test1 {
      * @throws BadPaddingException       if the padding is invalid
      */
     private static String decryptMessage(byte[] encryptedMessage, PrivateKey privateKey) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cipher = Cipher.getInstance("RSA");
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         byte[] decryptedBytes = cipher.doFinal(encryptedMessage);
         return new String(decryptedBytes);
@@ -164,6 +162,6 @@ public class Test1 {
      * @param receiver the receiver of the message
      */
     private static void sendMessage(byte[] message, String sender, String receiver) {
-        System.out.println("Message sent from " + sender + " to " + receiver + ": " + new String(message));
+        System.out.println("Message sent from " + sender + " to " + receiver + ".");
     }
 }
